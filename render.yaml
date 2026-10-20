@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mesh-routed-deferred-settlement
+    runtime: docker
+    plan: free
+    branch: dev
+    autoDeploy: true
+    healthCheckPath: /api/accounts
+    envVars:
+      - key: H2_CONSOLE_ENABLED
+        value: "false"

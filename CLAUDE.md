@@ -18,7 +18,9 @@ Use the Maven wrapper (no Maven install needed; JDK 17+ required). On Windows, u
 ./mvnw package                  # build jar
 ```
 
-The project has no linter or formatter configured. The H2 console is at `/h2-console` (JDBC URL `jdbc:h2:mem:upimesh`, user `sa`, empty password).
+The project has no linter or formatter configured.
+
+Deployment: `Dockerfile` (multi-stage Maven build, then JRE image) and `render.yaml` (Render free plan, `dev` branch, auto-deploy). The app reads `PORT` (default 8080) and `H2_CONSOLE_ENABLED` (default `true`; set to `false` on Render). The H2 console is at `/h2-console` (JDBC URL `jdbc:h2:mem:upimesh`, user `sa`, empty password).
 
 ## Architecture
 
