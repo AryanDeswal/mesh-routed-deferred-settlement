@@ -2,242 +2,486 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>UPI Offline Mesh — Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UPI Offline Mesh</title>
     <style>
+        :root {
+            --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e2e5ea;
+            --text: #14171c; --muted: #5d6877; --accent: #4f46e5; --accent-soft: #eef0ff; --accent-fg: #ffffff;
+            --ok: #15803d; --ok-bg: #dcfce7; --warn: #a16207; --warn-bg: #fef3c7;
+            --bad: #b91c1c; --bad-bg: #fee2e2; --bridge: #0e7490; --bridge-bg: #e0f5f9;
+            --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06);
+            --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b0d12; --surface: #13161d; --surface-2: #1a1e27; --border: #272c37;
+                --text: #e8ebf0; --muted: #8e98a8; --accent: #8b93ff; --accent-soft: #1e2140; --accent-fg: #0b0d12;
+                --ok: #4ade80; --ok-bg: rgba(74, 222, 128, .12); --warn: #fbbf24; --warn-bg: rgba(251, 191, 36, .12);
+                --bad: #f87171; --bad-bg: rgba(248, 113, 113, .12); --bridge: #22d3ee; --bridge-bg: rgba(34, 211, 238, .1);
+                --shadow: none;
+            }
+        }
         * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            margin: 0; padding: 24px; background: #0d1117; color: #e6edf3;
+            margin: 0; background: var(--bg); color: var(--text);
+            font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        h1 { margin-top: 0; color: #f0f6fc; }
-        h2 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; margin-top: 32px; }
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+        h1, h2, h3 { margin: 0; line-height: 1.25; }
+        h2 { font-size: 16px; }
+        .muted { color: var(--muted); }
+        .small { font-size: 13px; }
+        .mono { font-family: var(--mono); }
+
+        /* Header */
+        header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+        header h1 { font-size: 24px; letter-spacing: -.01em; }
+        header p { margin: 6px 0 0; max-width: 620px; }
+        .pill {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+            padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+        .pill.offline .dot { background: var(--warn); animation: pulse 1.2s infinite; }
+        @keyframes pulse { 50% { opacity: .3; } }
+
+        /* Cards */
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
         .grid { display: grid; gap: 16px; }
-        .grid-2 { grid-template-columns: 1fr 1fr; }
-        .grid-3 { grid-template-columns: repeat(3, 1fr); }
-        .card {
-            background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px;
-        }
-        .device {
-            border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 8px;
-            background: #0d1117;
-        }
-        .device.bridge { border-color: #2ea043; background: #052e16; }
-        .device.offline { opacity: 0.85; }
-        .badge {
-            display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px;
-            font-weight: 600; margin-left: 8px;
-        }
-        .badge-online { background: #2ea043; color: white; }
-        .badge-offline { background: #6e7681; color: white; }
-        .packet-id {
-            font-family: 'Consolas', 'Monaco', monospace; font-size: 11px;
-            background: #21262d; padding: 2px 6px; border-radius: 3px; margin: 2px;
-            display: inline-block;
-        }
-        button {
-            background: #238636; color: white; border: none; padding: 8px 16px;
-            border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;
-            margin: 4px;
-        }
-        button:hover { background: #2ea043; }
-        button.danger { background: #da3633; }
-        button.danger:hover { background: #f85149; }
-        button.secondary { background: #1f6feb; }
-        button.secondary:hover { background: #388bfd; }
-        input, select {
-            background: #0d1117; color: #e6edf3; border: 1px solid #30363d;
-            border-radius: 4px; padding: 6px 10px; font-size: 14px; margin: 4px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #30363d; }
-        th { color: #8b949e; font-weight: 600; font-size: 12px; text-transform: uppercase; }
-        .status-SETTLED { color: #56d364; font-weight: 600; }
-        .status-REJECTED { color: #f85149; font-weight: 600; }
-        .status-DUPLICATE_DROPPED { color: #d29922; font-weight: 600; }
-        .status-INVALID { color: #f85149; font-weight: 600; }
-        #log {
-            background: #010409; color: #7ee787; padding: 12px; border-radius: 6px;
-            font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;
-            max-height: 220px; overflow-y: auto; white-space: pre-wrap;
-            border: 1px solid #30363d;
-        }
-        .controls { background: #161b22; padding: 16px; border-radius: 8px;
-                    border: 1px solid #30363d; margin-bottom: 16px; }
+        .flow { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); margin-bottom: 16px; }
+        .main { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); margin-bottom: 16px; }
+        @media (max-width: 860px) { .main { grid-template-columns: 1fr; } }
+
+        /* Steps */
+        .step { display: flex; flex-direction: column; gap: 12px; position: relative; transition: border-color .2s, box-shadow .2s; }
+        .step.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .step-title { display: flex; align-items: center; gap: 10px; }
         .step-num {
-            display: inline-block; background: #58a6ff; color: white;
-            border-radius: 50%; width: 24px; height: 24px; text-align: center;
-            line-height: 24px; font-weight: 600; margin-right: 8px;
+            flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+            font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--muted);
         }
-        .balance { font-family: 'Consolas', monospace; color: #56d364; font-weight: 600; }
-        .small { font-size: 12px; color: #8b949e; }
+        .step.active .step-num { background: var(--accent); color: var(--accent-fg); }
+        .next-tag { margin-left: auto; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); display: none; }
+        .step.active .next-tag { display: inline; }
+        .step p { margin: 0; }
+        .step .spacer { flex: 1; }
+        .result { font-size: 13px; min-height: 20px; }
+
+        /* Form */
+        .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+        input, select {
+            width: 100%; font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+        }
+        input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .money { position: relative; }
+        .money span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; }
+        .money input { padding-left: 24px; }
+
+        /* Buttons */
+        button {
+            font: inherit; font-size: 14px; font-weight: 600; border-radius: 8px; padding: 9px 14px; cursor: pointer;
+            border: 1px solid transparent; background: var(--accent); color: var(--accent-fg); width: 100%;
+            transition: filter .15s, opacity .15s;
+        }
+        button:hover:not(:disabled) { filter: brightness(1.08); }
+        button:disabled { opacity: .55; cursor: progress; }
+        button.ghost { width: auto; background: transparent; color: var(--muted); border-color: var(--border); padding: 6px 12px; font-size: 13px; }
+        button.ghost:hover:not(:disabled) { color: var(--text); filter: none; background: var(--surface-2); }
+
+        /* Mesh */
+        .zones { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 180px); gap: 12px; align-items: stretch; }
+        @media (max-width: 600px) { .zones { grid-template-columns: 1fr; } .zones .arrow { transform: rotate(90deg); } }
+        .zone { border: 1px dashed var(--border); border-radius: 10px; padding: 12px; }
+        .zone-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 10px; }
+        .zone.street { border-color: var(--bridge); background: var(--bridge-bg); }
+        .zone.street .zone-label { color: var(--bridge); }
+        .devices { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+        .zone.street .devices { grid-template-columns: 1fr; }
+        .arrow { display: grid; place-items: center; color: var(--muted); font-size: 20px; }
+        .device { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-height: 86px; }
+        .device-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; }
+        .device-head svg { flex: none; color: var(--muted); }
+        .zone.street .device-head svg { color: var(--bridge); }
+        .device-sub { font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+        .chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 5px; color: #fff; }
+        .legend { margin: 14px 0 0; }
+
+        /* Accounts */
+        .accounts { display: flex; flex-direction: column; gap: 4px; }
+        .account { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 8px; transition: background .4s; }
+        .account.flash-up { background: var(--ok-bg); }
+        .account.flash-down { background: var(--bad-bg); }
+        .avatar {
+            flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+            font-weight: 700; font-size: 14px; background: var(--accent-soft); color: var(--accent);
+        }
+        .account .who { min-width: 0; flex: 1; }
+        .account .who div:last-child { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+        .balance { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .delta { display: block; font-size: 12px; font-weight: 600; }
+        .delta.up { color: var(--ok); } .delta.down { color: var(--bad); }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+        .stat { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+        .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+        .stat span { font-size: 12px; color: var(--muted); }
+
+        /* Status badges */
+        .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; letter-spacing: .02em; white-space: nowrap; }
+        .b-SETTLED { color: var(--ok); background: var(--ok-bg); }
+        .b-DUPLICATE_DROPPED { color: var(--warn); background: var(--warn-bg); }
+        .b-REJECTED, .b-INVALID { color: var(--bad); background: var(--bad-bg); }
+
+        /* Ledger */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 0 10px 8px; }
+        td { padding: 10px; border-top: 1px solid var(--border); white-space: nowrap; }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        th.num { text-align: right; }
+        .empty { padding: 24px; text-align: center; color: var(--muted); font-size: 14px; }
+
+        /* Log */
+        .log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; font-size: 13px; }
+        .log li { display: grid; grid-template-columns: 72px 10px 1fr; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--border); }
+        .log li:first-child { border-top: none; }
+        .log time { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+        .log .k { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); align-self: center; }
+        .log .k.ok { background: var(--ok); } .log .k.warn { background: var(--warn); } .log .k.bad { background: var(--bad); } .log .k.info { background: var(--accent); }
+        .log .msg { overflow-wrap: anywhere; }
+
+        /* Toast */
+        #toast {
+            position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+            background: var(--bad); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600;
+            transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); box-shadow: 0 6px 20px rgba(0, 0, 0, .2);
+        }
+        #toast.show { opacity: 1; transform: translate(-50%, 0); }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>📡 UPI Offline Mesh — Live Demo</h1>
-    <p class="small">
-        Send money in a basement with zero internet. Encrypted packets gossip from phone to phone
-        until one with 4G reaches the backend.
-    </p>
-
-    <div class="controls">
-        <h3 style="margin-top:0">🎬 Demo Flow</h3>
-
+    <header>
         <div>
-            <span class="step-num">1</span><strong>Compose payment</strong> (simulates sender phone)
-            <br>
-            <select id="senderVpa">
-                <option>alice@demo</option>
-                <option>bob@demo</option>
-                <option>carol@demo</option>
-            </select>
-            →
-            <select id="receiverVpa">
-                <option>bob@demo</option>
-                <option>carol@demo</option>
-                <option>alice@demo</option>
-                <option>dave@demo</option>
-            </select>
-            ₹<input type="number" id="amount" value="500" style="width: 100px">
-            PIN <input type="text" id="pin" value="1234" style="width: 80px" maxlength="4">
-            <button onclick="sendPacket()">📤 Inject into Mesh</button>
+            <h1>UPI Offline Mesh</h1>
+            <p class="muted">Pay with zero signal. Your phone encrypts the payment, nearby phones pass it along,
+                and the first phone that reaches 4G uploads it. The server settles it exactly once.</p>
+        </div>
+        <span class="pill" id="conn"><span class="dot"></span><span id="connText">Connecting…</span></span>
+    </header>
+
+    <section class="grid flow" aria-label="Demo steps">
+        <div class="card step" id="step1">
+            <div class="step-title"><span class="step-num">1</span><h2>Send a payment</h2><span class="next-tag">Next</span></div>
+            <p class="small muted">Encrypted on the sender's phone (<span class="mono">phone-alice</span>) with the server's public key.</p>
+            <form class="form" id="sendForm" novalidate>
+                <label>From<select id="senderVpa"></select></label>
+                <label>To<select id="receiverVpa"></select></label>
+                <label>Amount<div class="money"><span>₹</span><input type="number" id="amount" value="500" min="1" step="0.01" inputmode="decimal"></div></label>
+                <label>UPI PIN<input type="password" id="pin" value="1234" maxlength="6" inputmode="numeric" autocomplete="off"></label>
+            </form>
+            <div class="spacer"></div>
+            <button id="sendBtn" type="submit" form="sendForm">Encrypt &amp; send into mesh</button>
+            <div class="result muted" id="sendResult"></div>
         </div>
 
-        <div style="margin-top: 16px">
-            <span class="step-num">2</span><strong>Gossip</strong> — packets hop device-to-device
-            <button class="secondary" onclick="gossip()">🔄 Run Gossip Round</button>
+        <div class="card step" id="step2">
+            <div class="step-title"><span class="step-num">2</span><h2>Pass it along</h2><span class="next-tag">Next</span></div>
+            <p class="small muted">Every phone shares the packets it holds with phones in Bluetooth range. Each hop lowers the packet's TTL. Nobody along the way can read or change it.</p>
+            <div class="spacer"></div>
+            <button id="gossipBtn" type="button">Run a gossip round</button>
+            <div class="result muted" id="gossipResult"></div>
         </div>
 
-        <div style="margin-top: 16px">
-            <span class="step-num">3</span><strong>Bridge node walks outside, hits 4G</strong>
-            <button class="secondary" onclick="flushBridges()">📡 Bridges Upload to Backend</button>
-            <span class="small">(parallel — exercises idempotency)</span>
+        <div class="card step" id="step3">
+            <div class="step-title"><span class="step-num">3</span><h2>Reach the internet</h2><span class="next-tag">Next</span></div>
+            <p class="small muted">Phones with 4G upload everything they hold, all at once. Upload twice to watch the server drop the duplicate.</p>
+            <div class="spacer"></div>
+            <button id="flushBtn" type="button">Upload from bridge phones</button>
+            <div class="result" id="flushResult"></div>
         </div>
+    </section>
 
-        <div style="margin-top: 16px">
-            <button class="danger" onclick="resetMesh()">🗑 Reset Mesh + Cache</button>
-        </div>
-    </div>
-
-    <div class="grid grid-2">
+    <section class="grid main">
         <div class="card">
-            <h2>📱 Mesh Devices</h2>
-            <div id="devices"></div>
+            <div class="card-head">
+                <h2>Mesh network</h2>
+                <button class="ghost" id="resetBtn" type="button" title="Clears packets on every phone and the duplicate cache. Balances and the ledger are kept.">Reset mesh</button>
+            </div>
+            <div class="zones">
+                <div class="zone">
+                    <div class="zone-label">Basement · no signal</div>
+                    <div class="devices" id="offlineDevices"></div>
+                </div>
+                <div class="arrow" aria-hidden="true">→</div>
+                <div class="zone street">
+                    <div class="zone-label">Outside · 4G</div>
+                    <div class="devices" id="bridgeDevices"></div>
+                </div>
+            </div>
+            <p class="legend small muted">Each colour is one payment. The same colour on several phones means copies of the same encrypted packet.</p>
         </div>
 
         <div class="card">
-            <h2>🏦 Account Balances</h2>
-            <table id="accounts-table">
-                <thead><tr><th>VPA</th><th>Holder</th><th>Balance</th></tr></thead>
-                <tbody></tbody>
+            <div class="card-head"><h2>Accounts</h2></div>
+            <div class="accounts" id="accounts"></div>
+            <div class="stats">
+                <div class="stat"><b id="statSettled">0</b><span>Settled payments</span></div>
+                <div class="stat"><b id="statCache">0</b><span>Packets seen (dedup cache)</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card" style="margin-bottom:16px">
+        <div class="card-head"><h2>Ledger</h2><span class="small muted">Latest 20</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>#</th><th>From</th><th>To</th><th class="num">Amount</th>
+                    <th>Status</th><th>Bridge</th><th class="num">Hops</th><th>Time</th>
+                </tr></thead>
+                <tbody id="ledger"></tbody>
             </table>
-            <p class="small" id="cacheInfo"></p>
         </div>
-    </div>
+    </section>
 
-    <div class="card" style="margin-top: 16px">
-        <h2>📜 Transaction Ledger</h2>
-        <table id="tx-table">
-            <thead><tr>
-                <th>ID</th><th>From</th><th>To</th><th>Amount</th>
-                <th>Status</th><th>Bridge</th><th>Hops</th><th>Settled</th>
-            </tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div class="card" style="margin-top: 16px">
-        <h2>🪵 Activity Log</h2>
-        <div id="log"></div>
-    </div>
+    <section class="card">
+        <div class="card-head"><h2>Activity</h2><button class="ghost" id="clearLogBtn" type="button">Clear</button></div>
+        <ul class="log" id="log" aria-live="polite"></ul>
+        <div class="empty" id="logEmpty">Nothing yet. Start with step 1.</div>
+    </section>
 </div>
+<div id="toast" role="alert"></div>
 
 <script>
-function log(msg) {
-    const el = document.getElementById('log');
-    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n' + el.textContent;
+const $ = id => document.getElementById(id);
+const PALETTE = ['#6366f1', '#0891b2', '#d97706', '#db2777', '#059669', '#7c3aed', '#65a30d', '#2563eb'];
+const PHONE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>';
+const SIGNAL = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>';
+
+const prevBalances = {};
+const uploaded = new Set();
+let accountsKey = '';
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const rupees = n => '₹' + Number(n).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const shortName = id => id.replace(/^phone-/, '');
+function packetColor(id) {
+    let h = 0;
+    for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+}
+const chip = id => `<span class="chip" style="background:${packetColor(id)}" title="Packet ${esc(id)}">${esc(id.slice(0, 4))}</span>`;
+
+async function api(path, opts) {
+    const res = await fetch(path, opts);
+    if (!res.ok) {
+        let detail = res.statusText;
+        try { const body = await res.json(); detail = body.message || body.error || detail; } catch (e) {}
+        throw new Error(`${res.status} ${detail}`);
+    }
+    return res.json();
+}
+
+let toastTimer;
+function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function log(msg, kind = 'info') {
+    const li = document.createElement('li');
+    li.innerHTML = `<time>${new Date().toLocaleTimeString([], {hour12: false})}</time><span class="k ${kind}"></span><span class="msg">${msg}</span>`;
+    const list = $('log');
+    list.prepend(li);
+    while (list.children.length > 60) list.lastChild.remove();
+    $('logEmpty').hidden = true;
+}
+
+function setConnected(ok) {
+    $('conn').classList.toggle('offline', !ok);
+    $('connText').textContent = ok ? 'Live' : 'Server waking up…';
+}
+
+// Run an action with its button disabled, reporting failures instead of throwing.
+async function withButton(btn, fn) {
+    btn.disabled = true;
+    try { await fn(); }
+    catch (e) { toast(e.message); log(esc(e.message), 'bad'); }
+    finally { btn.disabled = false; refresh(); }
+}
+
+// ------------------------------------------------------------------ render
+
+function renderSelects(accounts) {
+    const key = accounts.map(a => a.vpa).join(',');
+    if (key === accountsKey) return;
+    accountsKey = key;
+    const from = $('senderVpa');
+    const keep = from.value;
+    from.innerHTML = accounts.map(a => `<option value="${esc(a.vpa)}" title="${esc(a.vpa)}">${esc(a.holderName)}</option>`).join('');
+    if (accounts.some(a => a.vpa === keep)) from.value = keep;
+    renderReceivers();
+}
+
+function renderReceivers() {
+    const from = $('senderVpa').value;
+    const to = $('receiverVpa');
+    const keep = to.value;
+    const options = [...$('senderVpa').options].filter(o => o.value !== from);
+    to.innerHTML = options.map(o => `<option value="${esc(o.value)}">${esc(o.textContent)}</option>`).join('');
+    if (options.some(o => o.value === keep)) to.value = keep;
+}
+
+function renderDevices(devices) {
+    const sorted = [...devices].sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+    const tile = d => `
+        <div class="device">
+            <div class="device-head">${d.hasInternet ? SIGNAL : PHONE}${esc(shortName(d.deviceId))}</div>
+            <div class="device-sub">${d.packetCount === 0 ? 'No packets' : d.packetCount === 1 ? '1 packet' : d.packetCount + ' packets'}</div>
+            <div class="chips">${d.packetIds.map(chip).join('')}</div>
+        </div>`;
+    $('offlineDevices').innerHTML = sorted.filter(d => !d.hasInternet).map(tile).join('');
+    $('bridgeDevices').innerHTML = sorted.filter(d => d.hasInternet).map(tile).join('');
+}
+
+function renderAccounts(accounts) {
+    $('accounts').innerHTML = accounts.map(a => {
+        const bal = Number(a.balance);
+        const prev = prevBalances[a.vpa];
+        const diff = prev === undefined ? 0 : bal - prev;
+        prevBalances[a.vpa] = bal;
+        const delta = diff ? `<span class="delta ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : '−'}${rupees(Math.abs(diff))}</span>` : '';
+        return `<div class="account${diff > 0 ? ' flash-up' : diff < 0 ? ' flash-down' : ''}" data-vpa="${esc(a.vpa)}">
+            <div class="avatar">${esc(a.holderName.charAt(0))}</div>
+            <div class="who"><div>${esc(a.holderName)}</div><div class="mono">${esc(a.vpa)}</div></div>
+            <div class="balance">${rupees(bal)}${delta}</div>
+        </div>`;
+    }).join('');
+    // Fade the highlight out after a moment so the next change stands out again.
+    setTimeout(() => document.querySelectorAll('.flash-up, .flash-down').forEach(el => el.classList.remove('flash-up', 'flash-down')), 2500);
+}
+
+function renderLedger(txs) {
+    $('ledger').innerHTML = txs.length === 0
+        ? '<tr><td colspan="8" class="empty">No payments have reached the server yet.</td></tr>'
+        : txs.map(t => `<tr>
+            <td class="muted">${t.id}</td>
+            <td>${esc(t.senderVpa)}</td><td>${esc(t.receiverVpa)}</td>
+            <td class="num">${rupees(t.amount)}</td>
+            <td><span class="badge b-${esc(t.status)}">${esc(t.status)}</span></td>
+            <td class="mono small">${esc(shortName(t.bridgeNodeId))}</td>
+            <td class="num">${t.hopCount}</td>
+            <td class="muted small">${new Date(t.settledAt).toLocaleTimeString([], {hour12: false})}</td>
+        </tr>`).join('');
+    $('statSettled').textContent = txs.filter(t => t.status === 'SETTLED').length;
+}
+
+// Highlight the step that moves the demo forward from the current mesh state.
+function renderNextStep(devices) {
+    const bridgeIds = new Set(devices.filter(d => d.hasInternet).flatMap(d => d.packetIds));
+    const allIds = new Set(devices.flatMap(d => d.packetIds));
+    let next = 1;
+    if ([...bridgeIds].some(id => !uploaded.has(id))) next = 3;
+    else if ([...allIds].some(id => !bridgeIds.has(id))) next = 2;
+    [1, 2, 3].forEach(n => $('step' + n).classList.toggle('active', n === next));
 }
 
 async function refresh() {
-    // Mesh state
-    const m = await fetch('/api/mesh/state').then(r => r.json());
-    const devicesDiv = document.getElementById('devices');
-    devicesDiv.innerHTML = m.devices.map(d => `
-        <div class="device ${d.hasInternet ? 'bridge' : 'offline'}">
-            <strong>${d.deviceId}</strong>
-            <span class="badge ${d.hasInternet ? 'badge-online' : 'badge-offline'}">
-                ${d.hasInternet ? '🌐 4G' : '🚫 OFFLINE'}
-            </span>
-            <span class="small">holding ${d.packetCount} packet(s)</span>
-            <div>${d.packetIds.map(id => `<span class="packet-id">${id}</span>`).join('')}</div>
-        </div>
-    `).join('');
-    document.getElementById('cacheInfo').textContent =
-        `Idempotency cache size: ${m.idempotencyCacheSize}`;
-
-    // Accounts
-    const accs = await fetch('/api/accounts').then(r => r.json());
-    document.querySelector('#accounts-table tbody').innerHTML = accs.map(a => `
-        <tr><td>${a.vpa}</td><td>${a.holderName}</td>
-            <td class="balance">₹${parseFloat(a.balance).toFixed(2)}</td></tr>
-    `).join('');
-
-    // Transactions
-    const txs = await fetch('/api/transactions').then(r => r.json());
-    document.querySelector('#tx-table tbody').innerHTML = txs.map(t => `
-        <tr>
-            <td>${t.id}</td><td>${t.senderVpa}</td><td>${t.receiverVpa}</td>
-            <td class="balance">₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td class="status-${t.status}">${t.status}</td>
-            <td>${t.bridgeNodeId}</td><td>${t.hopCount}</td>
-            <td class="small">${new Date(t.settledAt).toLocaleTimeString()}</td>
-        </tr>
-    `).join('');
+    try {
+        const [mesh, accounts, txs] = await Promise.all([
+            api('/api/mesh/state'), api('/api/accounts'), api('/api/transactions')
+        ]);
+        setConnected(true);
+        renderSelects(accounts);
+        renderDevices(mesh.devices);
+        renderAccounts(accounts);
+        renderLedger(txs);
+        renderNextStep(mesh.devices);
+        $('statCache').textContent = mesh.idempotencyCacheSize;
+    } catch (e) {
+        setConnected(false);
+    }
 }
 
-async function sendPacket() {
-    const body = {
-        senderVpa: document.getElementById('senderVpa').value,
-        receiverVpa: document.getElementById('receiverVpa').value,
-        amount: parseFloat(document.getElementById('amount').value),
-        pin: document.getElementById('pin').value,
-        ttl: 5,
-        startDevice: 'phone-alice'
-    };
-    const r = await fetch('/api/demo/send', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-    }).then(r => r.json());
-    log(`📤 Packet ${r.packetId.substring(0,8)} encrypted & injected at ${r.injectedAt} (TTL ${r.ttl})`);
-    log(`   ciphertext (truncated): ${r.ciphertextPreview}`);
-    refresh();
-}
+// ----------------------------------------------------------------- actions
 
-async function gossip() {
-    const r = await fetch('/api/mesh/gossip', {method: 'POST'}).then(r => r.json());
-    log(`🔄 Gossip: ${r.transfers} transfer(s) — ${JSON.stringify(r.deviceCounts)}`);
-    refresh();
-}
+$('senderVpa').addEventListener('change', renderReceivers);
 
-async function flushBridges() {
-    const r = await fetch('/api/mesh/flush', {method: 'POST'}).then(r => r.json());
-    log(`📡 ${r.uploadsAttempted} bridge upload(s):`);
-    r.results.forEach(res => {
-        log(`   ${res.bridgeNode} packet ${res.packetId} → ${res.outcome}` +
-            (res.reason ? ` (${res.reason})` : ''));
+$('sendForm').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const amount = parseFloat($('amount').value);
+    const pin = $('pin').value.trim();
+    if (!(amount > 0)) { toast('Enter an amount greater than zero.'); return; }
+    if (!/^\d{4,6}$/.test(pin)) { toast('The UPI PIN must be 4 to 6 digits.'); return; }
+    withButton($('sendBtn'), async () => {
+        const r = await api('/api/demo/send', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                senderVpa: $('senderVpa').value, receiverVpa: $('receiverVpa').value,
+                amount, pin, ttl: 5, startDevice: 'phone-alice'
+            })
+        });
+        const id = r.packetId.slice(0, 8);
+        $('sendResult').innerHTML = `${chip(id)} on ${esc(shortName(r.injectedAt))} · TTL ${r.ttl}`;
+        log(`Encrypted ${rupees(amount)} from ${esc($('senderVpa').value)} to ${esc($('receiverVpa').value)} as packet <span class="mono">${id}</span>. ` +
+            `Ciphertext: <span class="mono muted">${esc(r.ciphertextPreview.slice(0, 32))}…</span>`, 'info');
     });
-    refresh();
-}
+});
 
-async function resetMesh() {
-    await fetch('/api/mesh/reset', {method: 'POST'});
-    log('🗑 mesh + idempotency cache cleared');
-    refresh();
-}
+$('gossipBtn').addEventListener('click', () => withButton($('gossipBtn'), async () => {
+    const r = await api('/api/mesh/gossip', {method: 'POST'});
+    const text = r.transfers === 0
+        ? 'No new copies. Every phone in range already has every packet.'
+        : `${r.transfers} packet ${r.transfers === 1 ? 'copy' : 'copies'} passed between phones.`;
+    $('gossipResult').textContent = text;
+    log('Gossip round: ' + text.charAt(0).toLowerCase() + text.slice(1), 'info');
+}));
+
+$('flushBtn').addEventListener('click', () => withButton($('flushBtn'), async () => {
+    const r = await api('/api/mesh/flush', {method: 'POST'});
+    if (r.uploadsAttempted === 0) {
+        $('flushResult').innerHTML = '<span class="muted">The bridge phones hold nothing to upload yet.</span>';
+        log('Bridge upload: nothing to upload.', 'warn');
+        return;
+    }
+    $('flushResult').innerHTML = r.results.map(res =>
+        `<div>${chip(res.packetId)} <span class="badge b-${esc(res.outcome)}">${esc(res.outcome.replace('_', ' '))}</span>` +
+        (res.reason ? ` <span class="muted small">${esc(res.reason)}</span>` : '') + '</div>').join('');
+    r.results.forEach(res => {
+        uploaded.add(res.packetId);
+        const kind = res.outcome === 'SETTLED' ? 'ok' : res.outcome === 'DUPLICATE_DROPPED' ? 'warn' : 'bad';
+        const what = {
+            SETTLED: 'settled (transaction #' + res.transactionId + ')',
+            DUPLICATE_DROPPED: 'dropped as a duplicate, no money moved',
+            INVALID: 'rejected as invalid' + (res.reason ? ' (' + esc(res.reason) + ')' : '')
+        }[res.outcome] || esc(res.outcome);
+        log(`${esc(shortName(res.bridgeNode))} uploaded packet <span class="mono">${esc(res.packetId)}</span>: ${what}.`, kind);
+    });
+}));
+
+$('resetBtn').addEventListener('click', () => withButton($('resetBtn'), async () => {
+    await api('/api/mesh/reset', {method: 'POST'});
+    uploaded.clear();
+    ['sendResult', 'gossipResult', 'flushResult'].forEach(id => $(id).textContent = '');
+    log('Mesh and duplicate cache cleared. Balances and ledger kept.', 'info');
+}));
+
+$('clearLogBtn').addEventListener('click', () => {
+    $('log').innerHTML = '';
+    $('logEmpty').hidden = false;
+});
 
 refresh();
-setInterval(refresh, 3000);
+setInterval(() => { if (!document.hidden) refresh(); }, 3000);
 </script>
 </body>
 </html>

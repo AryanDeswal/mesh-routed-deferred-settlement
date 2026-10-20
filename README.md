@@ -63,7 +63,7 @@ Once you see `Started UpiMeshApplication in X.XXX seconds`, open:
 
 **http://localhost:8080**
 
-You'll get a dark dashboard with everything you need to drive the demo.
+You'll get a dashboard (light or dark, following your system setting) with everything you need to drive the demo. The highlighted step card shows what to click next.
 
 ### Stop the server
 
@@ -120,7 +120,7 @@ The dashboard has four buttons that walk through the full pipeline. The intended
 
 ### Step 1 — Compose a payment
 
-Choose sender, receiver, amount, PIN. Click **"📤 Inject into Mesh"**.
+Choose sender, receiver, amount, PIN. Click **"Encrypt & send into mesh"**.
 
 **What actually happens on the backend:**
 - The server pretends to be the sender's phone.
@@ -129,21 +129,21 @@ Choose sender, receiver, amount, PIN. Click **"📤 Inject into Mesh"**.
 - It wraps the ciphertext in a `MeshPacket` with a TTL of 5.
 - It hands the packet to `phone-alice`, an offline virtual device.
 
-You'll see `phone-alice` now holds 1 packet.
+In **Mesh network** you'll see the `alice` phone now holds 1 packet, shown as a coloured chip. Each payment gets its own colour, so you can follow its copies across phones.
 
 ### Step 2 — Run gossip rounds
 
-Click **"🔄 Run Gossip Round"**. Then click it again.
+Click **"Run a gossip round"**. Then click it again.
 
 Each round, every device that holds a packet broadcasts it to every other device within "Bluetooth range" (which, in our simulator, means everyone). TTL decrements per hop.
 
-After 1 round: every device holds the packet. After 2 rounds: still every device — TTL is just lower.
+After 1 round: every device holds the packet. A second round makes no new copies, because every phone already has it.
 
 In the real system this would happen organically as people walk past each other in the basement.
 
 ### Step 3 — Bridge node walks outside
 
-Click **"📡 Bridges Upload to Backend"**.
+Click **"Upload from bridge phones"**.
 
 `phone-bridge` is the only device with `hasInternet=true`. The dashboard simulates that phone walking outside and getting 4G. It POSTs every packet it holds to `/api/bridge/ingest`.
 
@@ -154,16 +154,16 @@ The backend pipeline runs:
 4. Verify freshness (signedAt within 24 hours).
 5. Run the debit/credit in a single DB transaction.
 
-Watch the **Account Balances** table — money has moved. Watch the **Transaction Ledger** — a new row appears.
+Watch **Accounts**: the sender and receiver flash red and green with the amount that moved. Watch the **Ledger**: a new row appears.
 
 ### Step 4 — Demonstrate idempotency (the killer feature)
 
 Bridges keep the packets they hold after uploading, so you can replay a delivery from the dashboard:
 
-1. Click **"🗑 Reset Mesh + Cache"**.
-2. Click **"📤 Inject into Mesh"** once, then **"🔄 Run Gossip Round"** once.
-3. Click **"📡 Bridges Upload to Backend"**. The outcome is `SETTLED` and the money moves.
-4. Click **"📡 Bridges Upload to Backend"** again. The same ciphertext arrives a second time, the outcome is `DUPLICATE_DROPPED`, and the balances don't change.
+1. Click **"Reset mesh"**.
+2. Click **"Encrypt & send into mesh"** once, then **"Run a gossip round"** once.
+3. Click **"Upload from bridge phones"**. The outcome is `SETTLED` and the money moves.
+4. Click **"Upload from bridge phones"** again. The same ciphertext arrives a second time, the outcome is `DUPLICATE_DROPPED`, and the balances don't change.
 
 The default mesh has only one bridge (`phone-bridge`), so the dashboard can't show several bridges uploading the *same* packet at the *same* moment. To see that, either seed more devices with `hasInternet=true` in `MeshSimulatorService.java`, or run the test:
 ```bash
