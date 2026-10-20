@@ -3,7 +3,7 @@ services:
     name: mesh-routed-deferred-settlement
     runtime: docker
     plan: free
-    branch: dev
+    branch: main
     autoDeploy: true
     healthCheckPath: /api/accounts
     envVars:
