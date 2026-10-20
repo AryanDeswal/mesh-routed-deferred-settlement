@@ -4,20 +4,23 @@ A Spring Boot backend that demonstrates **offline payments routed through a Blue
 
 This repo is the **server side** of that system, plus a software simulator of the mesh so you can demo the whole flow on a single laptop without any real Bluetooth hardware.
 
+**Live demo:** https://mesh-routed-deferred-settlement-0lg9.onrender.com. It runs on Render's free plan, so the first visit after a quiet spell can take a minute or two while the server wakes up, and the demo data resets each time it does.
+
 ---
 
 ## Table of Contents
 
 1. [What this proves](#what-this-proves)
 2. [How to run it](#how-to-run-it)
-3. [The demo flow](#the-demo-flow)
-4. [Architecture](#architecture)
-5. [Problems and how they're solved](#problems-and-how-theyre-solved)
-6. [File-by-file walkthrough](#file-by-file-walkthrough)
-7. [API reference](#api-reference)
-8. [Tests](#tests)
-9. [What's NOT real (and what would change for production)](#whats-not-real-and-what-would-change-for-production)
-10. [Limitations of the concept](#limitations-of-the-concept)
+3. [Configuration and deployment](#configuration-and-deployment)
+4. [The demo flow](#the-demo-flow)
+5. [Architecture](#architecture)
+6. [Problems and how they're solved](#problems-and-how-theyre-solved)
+7. [File-by-file walkthrough](#file-by-file-walkthrough)
+8. [API reference](#api-reference)
+9. [Tests](#tests)
+10. [What's NOT real (and what would change for production)](#whats-not-real-and-what-would-change-for-production)
+11. [Limitations of the concept](#limitations-of-the-concept)
 
 ---
 
@@ -60,7 +63,7 @@ Once you see `Started UpiMeshApplication in X.XXX seconds`, open:
 
 **http://localhost:8080**
 
-You'll get a dark dashboard with everything you need to drive the demo.
+You'll get a dashboard (light or dark, following your system setting) with everything you need to drive the demo. The highlighted step card shows what to click next.
 
 ### Stop the server
 
@@ -68,11 +71,46 @@ You'll get a dark dashboard with everything you need to drive the demo.
 
 ### Run the tests
 
-```cmd
-mvnw.cmd test
+```bash
+./mvnw test        # Mac/Linux
+mvnw.cmd test      # Windows
 ```
 
 The interesting one is `IdempotencyConcurrencyTest` — it fires three threads delivering the same packet simultaneously and asserts that exactly one settles.
+
+---
+
+## Configuration and deployment
+
+### Environment variables
+
+| Variable | Default | What it does |
+|---|---|---|
+| `PORT` | `8080` | HTTP port. Hosting platforms such as Render set this for you. |
+| `H2_CONSOLE_ENABLED` | `true` | Turns the `/h2-console` database browser on or off. Keep it `false` on any public deployment. |
+
+Everything else (database URL, idempotency window, packet freshness window) lives in `src/main/resources/application.properties`.
+
+### Docker
+
+The `Dockerfile` builds the jar with the Maven wrapper, then runs it on a slim Java 17 runtime image. It limits the JVM heap to 75% of the container's memory, so it fits a 512 MB instance.
+
+```bash
+docker build -t upi-mesh .
+docker run -p 8080:8080 upi-mesh
+```
+
+### Render
+
+The live demo is a Render **free** web service built from the `Dockerfile`. `render.yaml` records its settings: free plan, `main` branch, auto-deploy on every push, and the H2 console turned off.
+
+The branch workflow is:
+
+1. Make changes on the `dev` branch.
+2. Merge `dev` into `main` when they are ready.
+3. Render rebuilds and redeploys automatically. A build takes a few minutes.
+
+On the free plan the service sleeps after about 15 minutes without traffic. All data is in memory, so balances, transactions and the mesh reset to the seeded demo state whenever it sleeps or redeploys.
 
 ---
 
@@ -82,7 +120,7 @@ The dashboard has four buttons that walk through the full pipeline. The intended
 
 ### Step 1 — Compose a payment
 
-Choose sender, receiver, amount, PIN. Click **"📤 Inject into Mesh"**.
+Choose sender, receiver, amount, PIN. Click **"Encrypt & send into mesh"**.
 
 **What actually happens on the backend:**
 - The server pretends to be the sender's phone.
@@ -91,21 +129,21 @@ Choose sender, receiver, amount, PIN. Click **"📤 Inject into Mesh"**.
 - It wraps the ciphertext in a `MeshPacket` with a TTL of 5.
 - It hands the packet to `phone-alice`, an offline virtual device.
 
-You'll see `phone-alice` now holds 1 packet.
+In **Mesh network** you'll see the `alice` phone now holds 1 packet, shown as a coloured chip. Each payment gets its own colour, so you can follow its copies across phones.
 
 ### Step 2 — Run gossip rounds
 
-Click **"🔄 Run Gossip Round"**. Then click it again.
+Click **"Run a gossip round"**. Then click it again.
 
 Each round, every device that holds a packet broadcasts it to every other device within "Bluetooth range" (which, in our simulator, means everyone). TTL decrements per hop.
 
-After 1 round: every device holds the packet. After 2 rounds: still every device — TTL is just lower.
+After 1 round: every device holds the packet. A second round makes no new copies, because every phone already has it.
 
 In the real system this would happen organically as people walk past each other in the basement.
 
 ### Step 3 — Bridge node walks outside
 
-Click **"📡 Bridges Upload to Backend"**.
+Click **"Upload from bridge phones"**.
 
 `phone-bridge` is the only device with `hasInternet=true`. The dashboard simulates that phone walking outside and getting 4G. It POSTs every packet it holds to `/api/bridge/ingest`.
 
@@ -116,21 +154,20 @@ The backend pipeline runs:
 4. Verify freshness (signedAt within 24 hours).
 5. Run the debit/credit in a single DB transaction.
 
-Watch the **Account Balances** table — money has moved. Watch the **Transaction Ledger** — a new row appears.
+Watch **Accounts**: the sender and receiver flash red and green with the amount that moved. Watch the **Ledger**: a new row appears.
 
 ### Step 4 — Demonstrate idempotency (the killer feature)
 
-Reset the mesh. Inject a single packet. Run gossip 2 times. Now **all 5 devices hold the same packet, including multiple bridges in a more complex setup**.
+Bridges keep the packets they hold after uploading, so you can replay a delivery from the dashboard:
 
-To really see idempotency in action, modify `MeshSimulatorService.java` to seed multiple bridge devices, or just:
+1. Click **"Reset mesh"**.
+2. Click **"Encrypt & send into mesh"** once, then **"Run a gossip round"** once.
+3. Click **"Upload from bridge phones"**. The outcome is `SETTLED` and the money moves.
+4. Click **"Upload from bridge phones"** again. The same ciphertext arrives a second time, the outcome is `DUPLICATE_DROPPED`, and the balances don't change.
 
-1. Click "Inject" once.
-2. Click "Gossip" twice.
-3. Click "Flush Bridges" — only `phone-bridge` is a bridge in the default seed, so just one upload happens.
-
-To exercise the *concurrent duplicate* case properly, run the test:
-```cmd
-mvnw.cmd test -Dtest=IdempotencyConcurrencyTest#singlePacketDeliveredByThreeBridgesSettlesExactlyOnce
+The default mesh has only one bridge (`phone-bridge`), so the dashboard can't show several bridges uploading the *same* packet at the *same* moment. To see that, either seed more devices with `hasInternet=true` in `MeshSimulatorService.java`, or run the test:
+```bash
+./mvnw test -Dtest=IdempotencyConcurrencyTest#singlePacketDeliveredByThreeBridgesSettlesExactlyOnce
 ```
 
 This test creates one packet, fires 3 threads at `BridgeIngestionService.ingest()` simultaneously, and verifies that exactly one settles, two are dropped as duplicates, and the sender is debited exactly once.
@@ -244,10 +281,13 @@ See `BridgeIngestionService.java` for the freshness check.
 ## File-by-file walkthrough
 
 ```
-upi-offline-mesh/
+mesh-routed-deferred-settlement/
 ├── pom.xml                                  Maven build, Spring Boot 3.3, Java 17
 ├── mvnw, mvnw.cmd                           Maven wrapper (no install needed)
+├── Dockerfile, .dockerignore                Container build used by Render
+├── render.yaml                              Render service settings (free plan, main branch)
 ├── README.md                                this file
+├── CLAUDE.md                                Notes for AI coding assistants working in this repo
 └── src/main/
     ├── resources/
     │   ├── application.properties           H2 in-memory DB, port 8080, TTLs
@@ -302,7 +342,7 @@ src/test/java/com/demo/upimesh/
 | POST | `/api/mesh/flush` | Bridges with internet upload to backend (parallel) |
 | POST | `/api/mesh/reset` | Clear mesh + idempotency cache |
 | POST | `/api/bridge/ingest` | **The production endpoint.** Real bridges POST here |
-| GET | `/h2-console` | Browse the in-memory database |
+| GET | `/h2-console` | Browse the in-memory database (local only; disabled on the live demo) |
 
 H2 console login: JDBC URL `jdbc:h2:mem:upimesh`, username `sa`, no password.
 
@@ -337,9 +377,12 @@ Response:
 ## Tests
 
 Run all tests:
+```bash
+./mvnw test        # Mac/Linux
+mvnw.cmd test      # Windows
 ```
-mvnw.cmd test
-```
+
+Run a single test with `-Dtest=ClassName#methodName`.
 
 The three included tests:
 
@@ -362,7 +405,7 @@ This is a demo. To make it production-grade you'd swap these things:
 | One settlement service that owns the ledger | Integration with NPCI / a real bank core |
 | No auth on `/api/bridge/ingest` | Mutual TLS or signed bridge-node certificates |
 | In-memory accounts seeded on startup | Real KYC'd users, real VPAs, real PIN verification against the bank |
-| H2 console exposed | Disabled |
+| H2 console enabled by default (off on the live demo) | Removed entirely |
 | No rate limiting | Per-bridge-node rate limit, per-sender velocity check |
 | Logs to console | Structured logs to a SIEM, alerts on `INVALID` spikes |
 
